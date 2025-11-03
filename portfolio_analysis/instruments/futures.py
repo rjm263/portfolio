@@ -1,4 +1,4 @@
-from instrument import Instrument, price_history
+from .instrument import Instrument, price_history
 from datetime import datetime
 import numpy as np
 import pandas as pd
@@ -38,7 +38,7 @@ class Future(Instrument):
         self.margin = margin
         self.maturity = datetime.strptime(maturity, '%Y-%m-%d')
         self.quantity = quantity
-        if position is not 'l' or 's': raise ValueError('Position must be \'l\' or \'s\'!')
+        if position not in ('l','s'): raise ValueError('Position must be \'l\' or \'s\'!')
         self.position = position
 
     def get_value(self):
@@ -48,7 +48,7 @@ class Future(Instrument):
         value_df = (prices - self.price) * self.amount * self.quantity
         if self.maturity < today:
             value_df.loc[maturity_today] = value_df.loc[self.maturity].item()
-        return value_df if self.position is 'l' else -value_df
+        return value_df if self.position == 'l' else -value_df
 
     def get_returns(self, log=False):
         returns = self.get_value() / self.margin

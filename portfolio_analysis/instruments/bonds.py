@@ -1,4 +1,4 @@
-from instrument import Instrument
+from .instrument import Instrument
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import numpy as np
@@ -38,7 +38,7 @@ class Bond(Instrument):
         self.start_date = datetime.today().date() if start_date is None else datetime.strptime(start_date, '%Y-%m-%d')
         self.maturity = datetime.strptime(maturity, '%Y-%m-%d')
         self.face_value = face_value
-        if price is None and coupon is 0: raise ValueError('Please provide a price for zero-coupon bonds!')
+        if price is None and coupon == 0: raise ValueError('Please provide a price for zero-coupon bonds!')
         self.price = face_value if price is None else price
         self.coupon = coupon
         self.frequency = 6 if frequency is None else frequency
@@ -47,7 +47,7 @@ class Bond(Instrument):
         today = datetime.today().date()
         if self.maturity <= today: today = self.maturity
         dates = pd.date_range(start=self.start_date, end=today, freq='D')
-        if self.coupon is 0:
+        if self.coupon == 0:
             return pd.DataFrame({self.name: [self.face_value]*len(dates)}, index=pd.Index(dates, name='Date'))
         else:
             delta = relativedelta(today, self.start_date)
@@ -64,7 +64,7 @@ class Bond(Instrument):
             return value_df
 
     def returns(self, log=False):
-        if self.coupon is 0:
+        if self.coupon == 0:
             returns = (self.face_value - self.price) / self.price
         else:
             returns = (self.get_value() - self.face_value) / self.face_value

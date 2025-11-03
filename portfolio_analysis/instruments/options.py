@@ -1,4 +1,4 @@
-from instrument import Instrument, price_history
+from .instrument import Instrument, price_history
 from datetime import datetime
 import numpy as np
 import pandas as pd
@@ -40,14 +40,14 @@ class Option(Instrument):
         self.maturity = datetime.strptime(maturity, '%Y-%m-%d')
         self.premium = premium
         self.quantity = quantity
-        if position is not 'c' or 'p': raise ValueError('Position argument must be \'c\' or \'p\'!')
+        if position not in ('c','p'): raise ValueError('Position argument must be \'c\' or \'p\'!')
         self.position = position
 
     def get_value(self):
         prices = price_history(self.symbol, self.timestamp)
         today = datetime.today().date()
         maturity_today = pd.date_range(start=self.maturity, end=today, freq='1D')
-        if self.position is 'c':
+        if self.position == 'c':
             value_df = np.max(0, (prices - self.strike - self.premium) * self.amount * self.quantity)
         else:
             value_df = np.max(0, (self.strike - prices - self.premium) * self.amount * self.quantity)

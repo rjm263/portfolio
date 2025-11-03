@@ -1,4 +1,4 @@
-from instrument import Instrument, price_history
+from .instrument import Instrument, price_history
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import numpy as np
@@ -55,7 +55,7 @@ class SavingsPlan(Instrument):
         delta = relativedelta(days=4)   # markets are closed for at most 4 days in a row
         while current <= today - delta:
             if current is next:
-                if current > today - delta and prices.loc[current:today].shape is (0,1):
+                if current > today - delta and prices.loc[current:today].shape == (0,1):
                     continue
                 else:
                     accrued.append(self.rate * (1 - self.fees) / price_history(self.symbol, current, current + delta).iat[0,0].item())

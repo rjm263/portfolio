@@ -4,7 +4,6 @@ from datetime import datetime
 import pandas as pd
 import yfinance as yf
 
-from portfolio.portfolio import Portfolio
 
 def price_history(symbol: str, start: datetime, end: datetime=datetime.today()):
     """
@@ -45,17 +44,18 @@ class Instrument(ABC):
         self.timestamp = datetime.today() if timestamp is None else datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
         self.notes = notes if notes is not None else ''
 
+        from ..portfolio.portfolio import Portfolio
         active_portfolio = Portfolio.get_active()
         if active_portfolio is not None:
             active_portfolio.add_instrument(self)
         else: print(f'No active portfolio set! {self.name} not registered.')
 
     @classmethod
-    def add_dict(cls, list_kwargs):
+    def add_multiple(cls, list_args):
         """Add multiple assets of the same type at once."""
         instances = []
-        for kwargs in list_kwargs:
-            instances.append(cls(**kwargs))
+        for args in list_args:
+            instances.append(cls(**args))
         return instances
 
     @abstractmethod

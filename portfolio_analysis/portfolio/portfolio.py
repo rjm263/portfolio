@@ -1,9 +1,5 @@
 import pandas as pd
-from instruments.stocks import Stock
-from instruments.savings_plans import SavingsPlan
-from instruments.bonds import Bond
-from instruments.futures import Future
-from instruments.options import Option
+
 
 class Portfolio:
     """
@@ -35,6 +31,11 @@ class Portfolio:
 
     def add_instrument(self, instrument):
         """Add instruments to respective list."""
+        from ..instruments.stocks import Stock
+        from ..instruments.savings_plans import SavingsPlan
+        from ..instruments.bonds import Bond
+        from ..instruments.futures import Future
+        from ..instruments.options import Option
         if isinstance(instrument, Stock):
             self.stocks[instrument.name] = instrument
         elif isinstance(instrument, SavingsPlan):
@@ -54,14 +55,18 @@ class Portfolio:
 
     def get_total_value(self):
         """Return total value per asset class and of portfolio."""
-        total_stocks = sum([s.get_value().iloc(-1).item() for s in self.stocks])
-        total_savings_plans = sum([s.get_value().iloc(-1).item() for s in self.savings_plans])
-        total_bonds = sum([s.get_value().iloc(-1).item() for s in self.bonds])
-        total_futures = sum([s.get_value().iloc(-1).item() for s in self.futures])
-        total_options = sum([s.get_value().iloc(-1).item() for s in self.options])
+        total_stocks = sum([value.get_value().iloc[-1].item() for _, value in self.stocks.items()])
+        total_savings_plans = sum([value.get_value().iloc[-1].item() for _, value in self.savings_plans.items()])
+        total_bonds = sum([value.get_value().iloc[-1].item() for _, value in self.bonds.items()])
+        total_futures = sum([value.get_value().iloc[-1].item() for _, value in self.futures.items()])
+        total_options = sum([value.get_value().iloc[-1].item() for _, value in self.options.items()])
         total_value = (total_stocks + total_savings_plans + total_bonds + total_futures +
-                       total_options + self.cash['amount'].sum())
-        print(f'Value stocks: {total_stocks}\nValue savings plans: {total_savings_plans}\nValue bonds: '
-              f'{total_bonds}\nValue futures: {total_futures}\nValue options: '
-              f'{total_options}\n\nTotal value: {total_value}')
+                       total_options + self.cash['Amount'].sum())
+        print(f'Value stocks: {total_stocks:.2f}\n'
+              f'Value savings plans: {total_savings_plans:.2f}\n'
+              f'Value bonds: {total_bonds:.2f}\n'
+              f'Value futures: {total_futures:.2f}\n'
+              f'Value options: {total_options:.2f}\n\n'
+              f'Total value: {total_value:.2f}'
+              )
 

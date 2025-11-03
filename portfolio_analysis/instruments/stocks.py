@@ -1,4 +1,4 @@
-from instrument import Instrument, price_history
+from .instrument import Instrument, price_history
 import numpy as np
 import yfinance as yf
 
