@@ -34,10 +34,14 @@ class SavingsPlan(Instrument):
     notes: str
         Own notes about the financial asset.
     """
+
+    category = 'savings_plans'
+
     def __init__(self, name, symbol, price: float, amount, rate: float, next_date: str, frequency: int=1,
                  end_date: str=None, fees: float=None, timestamp=None, notes=None):
-        super().__init__(name, symbol, amount, timestamp, notes)
+        super().__init__(name, symbol, timestamp, notes)
         self.price = price
+        self.amount = amount
         self.rate = rate
         self.next_date = datetime.strptime(next_date, '%Y-%m-%d')
         self.frequency = relativedelta(months=frequency)
@@ -51,28 +55,31 @@ class SavingsPlan(Instrument):
         prices = price_history(self.symbol, self.timestamp)
         today = datetime.today()
         current = self.timestamp
-        next = self.next_date
+        nxt = self.next_date
         delta = relativedelta(days=4)   # markets are closed for at most 4 days in a row
         while current <= today - delta:
-            if current is next:
+            if current is nxt:
                 if current > today - delta and prices.loc[current:today].shape == (0,1):
                     continue
                 else:
                     accrued.append(self.rate * (1 - self.fees) / price_history(self.symbol, current, current + delta).iat[0,0].item())
-                next = next + self.frequency
+                nxt = nxt + self.frequency
             value_history.append((accrued[-1] + self.amount) * price_history(self.symbol, current - delta, current).iat[-1,0].item())
             dates.append(current.date())
             current = current + relativedelta(days=1)
-        value_df = pd.DataFrame({self.symbol: value_history}, index=pd.to_datetime(dates))
-        value_df.index.name = 'Date'
-        value_df['Amount'] = [a + self.amount for a in accrued]
-        return value_df
+        df = pd.DataFrame({self.symbol: value_history}, index=pd.to_datetime(dates))
+        df.index.name = 'Date'
+        df['Amount'] = [a + self.amount for a in accrued]
+        df.rename(columns={self.symbol: 'Value'}, inplace=True)
+        df.columns = pd.MultiIndex.from_product([[self.symbol], df.columns])
+        return df
 
     def get_returns(self, log=False):
         delta = relativedelta(datetime.today().date(), self.timestamp)
         periods = (delta.years * 12 + delta.months) // self.frequency.months
-        returns = (self.get_value() - (self.amount * self.price + periods * self.rate)) / (self.amount * self.price + periods * self.rate)
-        return returns if not log else np.log(1+returns)
+        df = (self.get_value() - (self.amount * self.price + periods * self.rate)) / (self.amount * self.price + periods * self.rate)
+        df.rename(columns={'Value': 'Returns'}, inplace=True)
+        return df if not log else np.log(1+df)
 
     def get_info(self):
         return yf.Ticker(self.symbol).info

@@ -18,7 +18,10 @@ def price_history(symbol: str, start: datetime, end: datetime=datetime.today()):
     end: datetime
         The end date; default is today. Format: 2000-10-01
     """
-    return yf.download(symbol, start=start, end=end)['Close']
+    df = yf.download(symbol, start=start, end=end, auto_adjust=True, progress=False)['Close']
+    df.columns.name = None
+    df.index.name = 'Date'
+    return df
 
 class Instrument(ABC):
     """
@@ -37,10 +40,12 @@ class Instrument(ABC):
     notes: str
         Own notes about the financial asset.
     """
-    def __init__(self, name: str, symbol: str, amount: float=1.0, timestamp: str=None, notes: str=None):
+
+    category: str = None
+
+    def __init__(self, name: str, symbol: str, timestamp: str=None, notes: str=None):
         self.name = name
         self.symbol = symbol
-        self.amount = amount
         self.timestamp = datetime.today() if timestamp is None else datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
         self.notes = notes if notes is not None else ''
 
@@ -73,6 +78,6 @@ class Instrument(ABC):
         """Return asset info as per Yahoo Finance."""
         pass
 
-    def get_notes(self):
+    def get_notes(self) -> str:
         """Return own notes attached to asset."""
         return f"Notes: {self.notes}\nDate added: {self.timestamp.strftime('%Y-%m-%d')}"

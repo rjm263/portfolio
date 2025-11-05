@@ -1,5 +1,6 @@
 from .instrument import Instrument, price_history
 import numpy as np
+import pandas as pd
 import yfinance as yf
 
 class Stock(Instrument):
@@ -21,16 +22,24 @@ class Stock(Instrument):
     notes: str
         Own notes about the financial asset.
     """
+
+    category = 'stocks'
+
     def __init__(self, name, symbol, price: float, amount=1.0, timestamp=None, notes=None):
-        super().__init__(name, symbol, amount, timestamp, notes)
+        super().__init__(name, symbol, timestamp, notes)
+        self.amount = amount
         self.price = price
 
     def get_value(self):
-        return price_history(self.symbol, self.timestamp) * self.amount
+        df = price_history(self.symbol, self.timestamp) * self.amount
+        df.rename(columns={self.symbol: 'Value'}, inplace=True)
+        df.columns = pd.MultiIndex.from_product([[self.symbol], df.columns])
+        return df
 
     def get_returns(self, log=False):
-        returns = (price_history(self.symbol, self.timestamp) - self.price) / self.price
-        return returns if not log else np.log(1 + returns)
+        df = (self.get_value() / self.amount - self.price) / self.price
+        df.rename(columns={'Value': 'Returns'}, inplace=True)
+        return df if not log else np.log(1 + df)
 
     def get_info(self):
         return yf.Ticker(self.symbol).info

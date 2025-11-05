@@ -33,12 +33,16 @@ class Option(Instrument):
     notes: str
         Own notes about the financial asset.
     """
-    def __init__(self, name, symbol, strike: float, maturity: str, premium: float, amount=1.0,
+
+    category = 'options'
+
+    def __init__(self, name, symbol, price: float, maturity: str, premium: float, amount=1.0,
                  quantity: int=100, position: str='c', timestamp=None, notes=None):
-        super().__init__(self, name, symbol, amount, timestamp, notes)
-        self.strike = strike
+        super().__init__(name, symbol, timestamp, notes)
+        self.price = price
         self.maturity = datetime.strptime(maturity, '%Y-%m-%d')
         self.premium = premium
+        self.amount = amount
         self.quantity = quantity
         if position not in ('c','p'): raise ValueError('Position argument must be \'c\' or \'p\'!')
         self.position = position
@@ -48,16 +52,19 @@ class Option(Instrument):
         today = datetime.today().date()
         maturity_today = pd.date_range(start=self.maturity, end=today, freq='1D')
         if self.position == 'c':
-            value_df = np.max(0, (prices - self.strike - self.premium) * self.amount * self.quantity)
+            df = np.max(0, (prices - self.price - self.premium) * self.amount * self.quantity)
         else:
-            value_df = np.max(0, (self.strike - prices - self.premium) * self.amount * self.quantity)
+            df = np.max(0, (self.price - prices - self.premium) * self.amount * self.quantity)
         if self.maturity < today:
-            value_df.loc[maturity_today] = value_df.loc[self.maturity].item()
-        return value_df
+            df.loc[maturity_today] = df.loc[self.maturity].item()
+        df.rename(columns={self.symbol: 'Value'}, inplace=True)
+        df.columns = pd.MultiIndex.from_product([[self.symbol], df.columns])
+        return df
 
     def get_returns(self, log=False):
-        returns = self.get_value() / (self.premium * self.amount * self.quantity)
-        return returns if not log else np.log(1 + returns)
+        df = self.get_value() / (self.premium * self.amount * self.quantity)
+        df.rename(columns={'Value': 'Returns'}, inplace=True)
+        return df if not log else np.log(1 + df)
 
     def get_info(self):
         return yf.Ticker(self.symbol).info

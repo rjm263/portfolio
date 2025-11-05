@@ -1,4 +1,5 @@
 import pandas as pd
+from datetime import datetime
 
 
 class Portfolio:
@@ -11,13 +12,16 @@ class Portfolio:
     active_portfolio = None
 
     def __init__(self):
-        self.stocks = {}
-        self.savings_plans = {}
-        self.bonds = {}
-        self.futures = {}
-        self.options = {}
+        self.stocks = []
+        self.savings_plans = []
+        self.bonds = []
+        self.futures = []
+        self.options = []
         self.cash = pd.DataFrame({'Origin': [], 'Amount': []})
         self.cash.index.name = 'Date'
+        self.earliest_date = datetime.today()
+        self.instruments = {'Stocks': self.stocks, 'SavingsPlans': self.savings_plans,
+                            'Bonds': self.bonds, 'Futures': self.futures, 'Options': self.options}
 
     @classmethod
     def set_active(cls, portfolio):
@@ -31,42 +35,88 @@ class Portfolio:
 
     def add_instrument(self, instrument):
         """Add instruments to respective list."""
-        from ..instruments.stocks import Stock
-        from ..instruments.savings_plans import SavingsPlan
-        from ..instruments.bonds import Bond
-        from ..instruments.futures import Future
-        from ..instruments.options import Option
-        if isinstance(instrument, Stock):
-            self.stocks[instrument.name] = instrument
-        elif isinstance(instrument, SavingsPlan):
-            self.savings_plans[instrument.name] = instrument
-        elif isinstance(instrument, Bond):
-            self.bonds[instrument.name] = instrument
-        elif isinstance(instrument, Future):
-            self.futures[instrument.name] = instrument
-        elif isinstance(instrument, Option):
-            self.options[instrument.name] = instrument
-        else: raise ValueError('Instrument type not included in portfolio!')
+        category = getattr(instrument, 'category', None)
+        if category and hasattr(self, category):
+            getattr(self, category).append(instrument)
+            if instrument.timestamp < self.earliest_date:
+                self.earliest_date = instrument.timestamp
+        else: raise ValueError(f'Instrument {type(instrument).__name__} has unknown/missing category!')
 
     def add_cash(self, origin, amount):
         """Add amount of cash from origin to cash account."""
         today = pd.to_datetime("today")
         self.cash.loc[today] = [origin, amount]
 
-    def get_total_value(self):
-        """Return total value per asset class and of portfolio."""
-        total_stocks = sum([value.get_value().iloc[-1].item() for _, value in self.stocks.items()])
-        total_savings_plans = sum([value.get_value().iloc[-1].item() for _, value in self.savings_plans.items()])
-        total_bonds = sum([value.get_value().iloc[-1].item() for _, value in self.bonds.items()])
-        total_futures = sum([value.get_value().iloc[-1].item() for _, value in self.futures.items()])
-        total_options = sum([value.get_value().iloc[-1].item() for _, value in self.options.items()])
-        total_value = (total_stocks + total_savings_plans + total_bonds + total_futures +
-                       total_options + self.cash['Amount'].sum())
-        print(f'Value stocks: {total_stocks:.2f}\n'
-              f'Value savings plans: {total_savings_plans:.2f}\n'
-              f'Value bonds: {total_bonds:.2f}\n'
-              f'Value futures: {total_futures:.2f}\n'
-              f'Value options: {total_options:.2f}\n\n'
-              f'Total value: {total_value:.2f}'
-              )
+    def get_current_value(self) -> float:
+        """Return total value of portfolio as of now."""
+        total_instruments = sum([sum(_current_value(s)) for _,s in self.instruments.items()])
+        total_cash = self.cash['Amount'].sum()
+        return (total_instruments + total_cash).item()
+
+    def get_current_returns(self) -> float:
+        """Return total returns of portfolio as of now."""
+        total_portfolio_value = self.get_current_value()
+        return sum([sum([a * b for a, b in zip(_current_returns(s), _current_weights(s, total_portfolio_value))
+                         ]) for _,s in self.instruments.items()])
+
+    def get_history(self, start=None, end=None) -> pd.DataFrame:
+        """Return price history for all assets, grouped by asset class."""
+        if not start: start = self.earliest_date.date()
+        if not end: end = datetime.today().date()
+        dfs = {}
+        for key, a in self.instruments.items():
+            if not a: continue
+            frms = [x for s in a for x in [s.get_value().loc[start:end], s.get_returns().loc[start:end]]]
+            df = pd.concat(frms, axis=1)
+            dfs[key] = df
+        if not dfs: raise ValueError('The portfolio is empty!')
+        return pd.concat(dfs, axis=1)
+
+    def get_info(self) -> pd.DataFrame:
+        """Return list of all assets and their variables."""
+        cols = ['name', 'symbol', 'price', 'amount']
+        dfs = {}
+        for key, a in self.instruments.items():
+            if key != 'Bonds':
+                d1 = {c: [getattr(s, c, None) for s in a] for c in cols}
+            else:
+                cols_b = ['name', 'symbol', 'price', 'face_value', 'amount']
+                d1 = {c: [getattr(s, c, None) for s in a] for c in cols_b}
+            d2 = {'current_value': [s.get_value().iloc[-1].item() for s in a],
+                  'current_returns': [s.get_returns().iloc[-1].item() for s in a]}
+            df = pd.DataFrame(d1 | d2)
+            df.set_index('name', inplace=True)
+            dfs[key] = df
+        return pd.concat(dfs, axis=0)
+
+
+
+############################################################################################################
+def _current_value(l):
+    current_value = []
+    for el in l:
+        df = el.get_value()
+        if not df.empty:
+            value = df.iloc[-1].item()
+        else: value = 0
+        current_value.append(value)
+    return current_value
+
+
+def _current_returns(l):
+    current_returns = []
+    for el in l:
+        df = el.get_returns()
+        if not df.empty:
+            returns = df.iloc[-1].item()
+        else: returns = 0
+        current_returns.append(returns)
+    return current_returns
+
+def _current_weights(l, total_portfolio_value):
+    return [v / total_portfolio_value for v in _current_value(l)]
+
+
+
+
 
